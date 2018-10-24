@@ -1,15 +1,14 @@
+# SPDX-License-Identifier: GPL-2.0
 #/*------------------------------------------------------------------------*/
-#/*  Nuvoton Technology Corporation Confidential                           */
-#/*                                                                        */
 #/*  Copyright (c) 2015-2018 by Nuvoton Technology Corporation             */
-#/*  All rights reserved                                                   */
+#/*  All Rights Reserved                                                   */
 #/*                                                                        */
 #/*<<<---------------------------------------------------------------------*/
 #/* File Contents:                                                         */
 #/*   makefile                                                             */
-#/*            This file contains ECST makefile                            */
+#/*            This file contains UUT makefile                             */
 #/* Project:                                                               */
-#/*            ECST                                                        */
+#/*            UUT                                                         */
 #/*------------------------------------------------------------------------*/
 
 #----------------------------------------------------------------------------
@@ -28,8 +27,8 @@
 # Directories
 #----------------------------------------------------------------------------
 
-SRC_DIR		= ../src/source
-OUTPUT_DIR      = Release
+SRC_DIR		= ./src/source
+OUTPUT_DIR      = release
 
 #----------------------------------------------------------------------------
 # Files
@@ -52,7 +51,7 @@ Uartupdatetool_SRC    =    $(SRC_DIR)/main.c $(SRC_DIR)/cmd.c $(SRC_DIR)/lib_crc
 
 CC		= gcc
 MAKEDIR		= mkdir -p
-INCLUDE 	= -I $(SRC_DIR) -I ../src/include/  -I ../SWC_DEFS/
+INCLUDE 	= -I $(SRC_DIR) -I ./src/include/
 TARGET  	= Uartupdatetool
 CFLAGS  	= -g -Wall
 # Google-specific compilation
