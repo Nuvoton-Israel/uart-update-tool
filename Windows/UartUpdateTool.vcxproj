@@ -11,19 +11,19 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Linux\src\source\cmd.c" />
-    <ClCompile Include="..\Linux\src\source\lib_crc.c" />
-    <ClCompile Include="..\Linux\src\source\main.c" />
-    <ClCompile Include="..\Linux\src\source\opr.c" />
-    <ClCompile Include="..\Linux\src\source\wComPort.cpp" />
+    <ClCompile Include="..\src\source\cmd.c" />
+    <ClCompile Include="..\src\source\lib_crc.c" />
+    <ClCompile Include="..\src\source\main.c" />
+    <ClCompile Include="..\src\source\opr.c" />
+    <ClCompile Include="..\src\source\wComPort.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\Linux\src\include\cmd.h" />
-    <ClInclude Include="..\Linux\src\include\ComPort.h" />
-    <ClInclude Include="..\Linux\src\include\lib_crc.h" />
-    <ClInclude Include="..\Linux\src\include\main.h" />
-    <ClInclude Include="..\Linux\src\include\opr.h" />
-    <ClInclude Include="..\Linux\src\include\uut_types.h" />
+    <ClInclude Include="..\src\include\cmd.h" />
+    <ClInclude Include="..\src\include\ComPort.h" />
+    <ClInclude Include="..\src\include\lib_crc.h" />
+    <ClInclude Include="..\src\include\main.h" />
+    <ClInclude Include="..\src\include\opr.h" />
+    <ClInclude Include="..\src\include\uut_types.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{0E41D097-205E-4817-9368-1EB43F28F6A9}</ProjectGuid>
