@@ -57,6 +57,7 @@ Operations:
        rd               - Read From Memory/Flash       
        go               - Execute a non-return code       
        call             - Execute a returnable code
+       scan		- Scan all ports. Output is saved to  SerialPortNumber.txt
        
        
        
