@@ -23,11 +23,31 @@ extern "C" {
  *---------------------------------------------------------------------------
  */
 
+#if WIN32
+#ifdef __WATCOMC__
+
 /*---------------------------------------------------------------------------
  * Constant definitions
  *---------------------------------------------------------------------------
  */
+#define INVALID_HANDLE_VALUE    0
+
+/*----------------------------------------------------------------------------
+ * Type definitions
+ *---------------------------------------------------------------------------*/
+typedef unsigned long  HANDLE; /* for compatability with WIN API */
+
+#endif /* __WATCOMC__ */
+#else
+/*---------------------------------------------------------------------------
+ * Constant definitions
+ *---------------------------------------------------------------------------
+ */
+#ifdef WIN32
+#define INVALID_HANDLE_VALUE    0
+#else
 #define INVALID_HANDLE_VALUE    -1
+#endif
 
 /*---------------------------------------------------------------------------
  * Type definitions
@@ -35,11 +55,17 @@ extern "C" {
  */
 typedef unsigned long  HANDLE; /* for compatability with operating system */
 
+#endif
 
 
 #define MAX_COMPORT_DEVICES     10
+#ifdef WIN32
+#define COMP_PORT_PREFIX_1      "COM"
+#define COMP_PORT_PREFIX_2      "COM"
+#else
 #define COMP_PORT_PREFIX_1      "ttyS"
 #define COMP_PORT_PREFIX_2      "ttyUSB"
+#endif
 
 struct COMPORT_FIELDS {
 	UINT32	BaudRate;	/* Baudrate at which running               */
@@ -135,7 +161,11 @@ BOOLEAN ComPortWriteBin(HANDLE nDeviceID, const UINT8 *Buffer, UINT32 BufSize);
  *
  *---------------------------------------------------------------------------
  */
+#ifdef WIN32
+UINT32 ComPortReadBin(HANDLE nDeviceID, const UINT8 *Buffer, UINT32 BufSize);
+#else
 UINT32 ComPortReadBin(HANDLE nDeviceID, UINT8 *Buffer, UINT32 BufSize);
+#endif
 
 /*---------------------------------------------------------------------------
  * Function: UINT32 ComPortWaitForRead()

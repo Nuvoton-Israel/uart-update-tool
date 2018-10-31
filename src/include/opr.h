@@ -34,6 +34,7 @@
 #define OPR_READ_MEM		"rd"	/* Read From Memory/Flash	*/
 #define OPR_EXECUTE_EXIT	"go"	/* Execute a non-return code	*/
 #define OPR_EXECUTE_CONT	"call"	/* Execute returnable code	*/
+#define OPR_SCAN		    "scan"  /*scan COM port			*/	
 
 enum SYNC_RESULT {
 	SR_OK           =   0x00,
@@ -71,4 +72,6 @@ void		OPR_GetFlashSts(UINT32 devNum);
 BOOLEAN		OPR_ScanBaudRate(void);
 enum SYNC_RESULT	OPR_CheckSync(UINT32 bdRate);
 void		OPR_ReadStatusMsg(char *outputFileName);
+BOOLEAN		OPR_ScanPort(struct COMPORT_FIELDS portCfg, char * port);
+
 #endif /* _OPR_H_ */

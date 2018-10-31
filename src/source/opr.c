@@ -13,10 +13,12 @@
  */
 
 #include <stdio.h>
+#ifndef WIN32
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#endif
 #include <time.h>
 
 #include "uut_types.h"
@@ -93,6 +95,7 @@ void OPR_Usage(void)
 	printf("       %s\t\t- Read From Memory/Flash\n", OPR_READ_MEM);
 	printf("       %s\t\t- Execute a non-return code\n", OPR_EXECUTE_EXIT);
 	printf("       %s\t\t- Execute a returnable code\n", OPR_EXECUTE_CONT);
+	printf("       %s\t\t- Scan all ports. Output is saved to  SerialPortNumber.txt\n", OPR_SCAN);
 }
 
 /*----------------------------------------------------------------------------
@@ -126,7 +129,11 @@ BOOLEAN OPR_OpenPort(const char  *port_name, struct COMPORT_FIELDS portCfg)
 {
 	char full_port_name[MAX_PORT_NAME_SIZE];
 
+#ifdef WIN32
+	strcpy(full_port_name, "\\\\.\\");
+#else
 	strcpy(full_port_name, "/dev/");
+#endif
 
 	strcat(full_port_name, port_name);
 
@@ -147,6 +154,116 @@ BOOLEAN OPR_OpenPort(const char  *port_name, struct COMPORT_FIELDS portCfg)
 
 	return TRUE;
 }
+
+
+
+/*----------------------------------------------------------------------------
+* Function:        OPR_ScanPort
+*
+* Parameters:	portCfg - COM Port configuration structure.
+* Returns:	1 if successful, 0 in the case of an error.
+* Side effects:
+* Description:
+*		Open a specified ComPort device.
+*---------------------------------------------------------------------------
+*/
+BOOLEAN OPR_ScanPort(struct COMPORT_FIELDS portCfg, char * port)
+{
+	char full_port_name[MAX_PORT_NAME_SIZE] = { 0 };
+	char env[6 + MAX_PORT_NAME_SIZE] = { 0 };  // PORT=...
+	char num[3];
+	int i;
+	enum SYNC_RESULT sr;
+	BOOLEAN ret_val = FALSE;
+	FILE *file_pointer;
+
+	displayColorMsg(SUCCESS, "\nscan ports...\n");
+
+	for (i = 0; i < 256; i++) {
+		sprintf(num, "%d", i);
+#ifdef WIN32
+		strcpy(full_port_name, "\\\\.\\COM");
+#else
+		strcpy(full_port_name, "/dev/tty");
+#endif
+		strcat(full_port_name, num);
+
+		if (portHandle != INVALID_HANDLE_VALUE)
+			ComPortClose(portHandle);
+
+		displayColorMsg(SUCCESS, "\rTry to open port  %s", full_port_name);
+
+		portHandle = ComPortOpen((const char *)full_port_name, portCfg);
+
+		if ((INT32)portHandle > 0) {
+			sr = OPR_CheckSync(portCfg.BaudRate);
+			if (sr == SR_OK) {
+				displayColorMsg(SUCCESS, "\nFound port  %s\n", full_port_name);
+				strncpy(port, full_port_name, sizeof(full_port_name));
+				ComPortClose(portHandle);
+#ifdef WIN32
+				strcpy(full_port_name, "COM");
+				strcat(full_port_name, num);
+#else
+				strcpy(full_port_name, "tty");
+				strcat(full_port_name, num);
+#endif
+				
+
+				ret_val = TRUE;
+				break;
+			}
+		}
+	}
+	// for Linux only: can be both tty0 or ttyUSBS0.
+#ifndef WIN32
+	if ((INT32)portHandle < 0) {
+		displayColorMsg(SUCCESS, "\n\nscan usb to serial ports...\n");
+		for (i = 0; i < 256; i++) {
+			strcpy(full_port_name, "/dev/ttyUSB");
+
+			sprintf(num, "%d", i);
+			strcat(full_port_name, num);
+
+			displayColorMsg(SUCCESS, "\rTry to open port  %s", full_port_name);
+
+			if (portHandle != INVALID_HANDLE_VALUE)
+				ComPortClose(portHandle);
+
+			portHandle = ComPortOpen((const char *)full_port_name, portCfg);
+
+			if ((INT32)portHandle > 0) {
+				displayColorMsg(SUCCESS, "\nFound port  %s\n", full_port_name);
+				strncpy(port, full_port_name, sizeof(full_port_name));
+				ComPortClose(portHandle);
+				strcpy(full_port_name, "ttyUSB");
+				strcat(full_port_name, num);
+				ret_val = TRUE;
+				break;
+			}
+		}
+	}
+#endif
+
+	// save the port number to environment:
+	strcpy(env, "PORT=");
+	strcat(env, full_port_name);
+	putenv(env);
+
+	//save the port to "SerialPortNumber.txt" for writing
+	file_pointer = fopen("SerialPortNumber.txt", "w+");
+
+	if (file_pointer) {
+		// Write to the file
+		fprintf(file_pointer, full_port_name);
+
+		// Close the file
+		fclose(file_pointer);
+	}
+
+	return ret_val;
+}
+
 
 /*----------------------------------------------------------------------------
  * Function:	OPR_WriteMem
@@ -467,6 +584,12 @@ enum SYNC_RESULT OPR_CheckSync(UINT32 bdRate)
 
 	UINT32			cmdNum;
 	struct ComandNode	*curCmd = cmdBuf;
+#ifdef WIN32
+#if !defined(__WATCOMC__)
+	UINT32		errors;
+	COMSTAT		comstat;
+#endif
+#endif
 	UINT32		bytesRead = 0;
 	UINT32		i;
 
@@ -476,6 +599,11 @@ enum SYNC_RESULT OPR_CheckSync(UINT32 bdRate)
 
 	CMD_BuildSync(cmdBuf, &cmdNum);
 
+#ifdef WIN32
+#if !defined(__WATCOMC__)
+	ClearCommError(portHandle, (LPDWORD)&errors, &comstat);
+#endif
+#endif
 
 	if (!ComPortWriteBin(portHandle, curCmd->cmd, curCmd->cmdSize))
 		return SR_ERROR;
@@ -488,7 +616,15 @@ enum SYNC_RESULT OPR_CheckSync(UINT32 bdRate)
 		if (bytesRead == 1)
 			break;
 		/* Otherwise give the ROM-Code time to answer */
+#if WIN32
+#if !defined(__WATCOMC__)
+		Sleep(300);
+#else
 		sleep(1);
+#endif
+#else
+		sleep(1);
+#endif
 	}
 
 	if (bytesRead == 0)

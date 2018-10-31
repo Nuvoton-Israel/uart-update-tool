@@ -33,7 +33,11 @@
 
 /* Default values */
 #define DEFAULT_BAUD_RATE	115200
+#ifdef WIN32
+#define DEFAULT_PORT_NAME	"COM1"
+#else
 #define DEFAULT_PORT_NAME	"ttyS0"
+#endif
 #define DEFAULT_DEV_NUM		0
 
 #define GET_BASE(str)	(((str[0] == 'x') || (str[1] == 'x')) ? \
@@ -62,8 +66,17 @@ BOOLEAN		console;
  * Local variables
  *---------------------------------------------------------------------------
  */
+#ifdef WIN32
+static const char TOOL_NAME[]	  = { "WINDOWS UART Update Tool" };
+#if defined(_WIN32)
+static const char TOOL_VERSION[] = { "2.0.3" };
+#else
+    #error  You must define __WATCOMC__ or _WIN32
+#endif
+#else
 static const char TOOL_NAME[]	  = { "LINUX UART Update Tool" };
-static const char TOOL_VERSION[] = { "2.0.2" };
+static const char TOOL_VERSION[] = { "2.0.3" };
+#endif
 
 
 /*---------------------------------------------------------------------------
@@ -79,7 +92,6 @@ static UINT32	PARAM_GetStrSize(char *string);
 static void	MAIN_PrintVersion(void);
 static void	ToolUsage(void);
 static void	ExitUartApp(UINT32 exitStatus);
-static void	ToolUsage(void);
 static int	str_cmp_no_case(const char *s1, const char *s2);
 
 enum EXIT_CODE {
@@ -162,12 +174,27 @@ int main(int   argc, char *argv[])
 
 	PARAM_CheckPortNum(port_name);
 
-	/* Configure COM Port parameters */
+	/* 
+	* Configure COM Port parameters
+	*/
 	portCfg.BaudRate	= MAX(baudRate, BR_LOW_LIMIT);
 	portCfg.ByteSize	= 8;
 	portCfg.FlowControl	= 0;
 	portCfg.Parity		= 0;
 	portCfg.StopBits	= 0;
+
+	/*
+	* A scan is required, chaeck each port, and then save the port num to the invironment
+	*/
+	if (strcmp(opr_name, OPR_SCAN) == 0) {
+		if(OPR_ScanPort(portCfg, port_name))
+			displayColorMsg(SUCCESS,
+					"\nScan ports pass, detected %s\n", port_name);
+		else
+			displayColorMsg(FAIL,
+				"\nScan ports failed! Try to disconnect all terminal Apps, and make sure straps or OK\n");;
+		exit(EC_OK);
+	}
 
 	/*
 	 * Open a ComPort device. If user haven't specified such, use ComPort 1
@@ -241,8 +268,10 @@ int main(int   argc, char *argv[])
 #ifdef __WATCOMC__
 	return 0;
 #endif /*__WATCOMC__*/
+#ifndef WIN32
 	ExitUartApp(EC_OK);
 	return 0;
+#endif
 }
 
 /*---------------------------------------------------------------------------
@@ -355,6 +384,8 @@ static void PARAM_ParseCmdLine(int   argc, char *argv[])
 			displayColorMsg(FAIL,
 			"ERROR: Parameter '%s' is not supported\n", *(argv+i));
 			DISPLAY_MSG(("Use '-help' for menu\n"));
+			ToolUsage();
+			OPR_Usage();
 			exit(1);
 		}
 
@@ -403,16 +434,27 @@ static void PARAM_CheckPortNum(char *port_name)
  */
 static void PARAM_CheckOprNum(const char *opr)
 {
+#ifdef WIN32	
+	if ((stricmp(opr, OPR_WRITE_MEM) != 0)    &&
+	    (stricmp(opr, OPR_READ_MEM) != 0)     &&
+	    (stricmp(opr, OPR_EXECUTE_EXIT) != 0) &&
+	    (stricmp(opr, OPR_SCAN) != 0)         &&
+	    (stricmp(opr, OPR_EXECUTE_CONT) != 0)) {
+
+#else
 	if ((strcasecmp(opr, OPR_WRITE_MEM) != 0)    &&
 	    (strcasecmp(opr, OPR_READ_MEM) != 0)     &&
 	    (strcasecmp(opr, OPR_EXECUTE_EXIT) != 0) &&
+	    (strcasecmp(opr, OPR_SCAN) != 0)         &&
 	    (strcasecmp(opr, OPR_EXECUTE_CONT) != 0)) {
+#endif
 		displayColorMsg(FAIL,
 "ERROR: Operation %s not supported, Supported operations are %s, %s, %s & %s\n",
 		opr,
 		OPR_WRITE_MEM,
 		OPR_READ_MEM,
 		OPR_EXECUTE_EXIT,
+		OPR_SCAN,
 		OPR_EXECUTE_CONT);
 		ExitUartApp(EC_OPR_MUM_ERR);
 	}
@@ -582,11 +624,37 @@ void displayColorMsg(BOOLEAN success, char *fmt, ...)
 {
 	va_list argptr;
 
+#ifdef WIN32
+	HANDLE				h_console;
+	CONSOLE_SCREEN_BUFFER_INFO	csbi;
+	WORD				old_color = FOREGROUND_INTENSITY;
+	WORD				new_color;
+
+	h_console = GetStdHandle(STD_OUTPUT_HANDLE);
+
+	if (h_console != INVALID_HANDLE_VALUE) {
+		GetConsoleScreenBufferInfo(h_console, &csbi);
+
+		/* Save the current text colors */
+		old_color = csbi.wAttributes;
+
+		if (success == TRUE)
+			new_color = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+		else
+			new_color = FOREGROUND_RED | FOREGROUND_INTENSITY;
+
+		SetConsoleTextAttribute(h_console, new_color);
+	}
+#endif
 
 	va_start(argptr, fmt);
 	vprintf(fmt, argptr);
 	va_end(argptr);
 
+#ifdef WIN32
+	if (h_console != INVALID_HANDLE_VALUE)
+		SetConsoleTextAttribute(h_console, old_color);
+#endif
 }
 
 
@@ -602,5 +670,9 @@ void displayColorMsg(BOOLEAN success, char *fmt, ...)
  */
 static int str_cmp_no_case(const char *s1, const char *s2)
 {
+#ifdef WIN32
+	return _stricmp(s1, s2);
+#else
 	return strcasecmp(s1, s2);
+#endif
 }

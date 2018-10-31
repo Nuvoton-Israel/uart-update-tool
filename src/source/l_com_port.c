@@ -296,9 +296,9 @@ HANDLE ComPortOpen(const char *ComPortDeviceName,
 	port_handler = open(ComPortDeviceName, O_RDWR | O_NOCTTY);
 
 	if (port_handler < 0) {
-		displayColorMsg(FAIL,
-				"ComPortOpen Error %d opening %s: %s\n",
-				errno, ComPortDeviceName, strerror(errno));
+		//displayColorMsg(FAIL,
+		//		"ComPortOpen Error %d opening %s: %s\n",
+		//		errno, ComPortDeviceName, strerror(errno));
 		return INVALID_HANDLE_VALUE;
 	}
 
