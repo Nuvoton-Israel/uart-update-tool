@@ -58,13 +58,16 @@
  *---------------------------------------------------------------------------
  */
 #define CRC_VERSION     "1.12"
-#define CRC_16
 
+#define CRC_16
+#define CRC_32
 /*---------------------------------------------------------------------------
  * CRC library API
  *---------------------------------------------------------------------------
  */
-unsigned short	update_crc(unsigned short crc, char c);
+
+unsigned short update_crc16(unsigned short crc, char c);
+unsigned long  update_crc32(unsigned long crc,  char c);
 
 #endif /* #define _LIB_CRC_H */
 

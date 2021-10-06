@@ -2,7 +2,7 @@
 /*
  * Nuvoton UART Update Tool
  *
- * Copyright (C) 2018 Nuvoton Technologies, All Rights Reserved
+ * Copyright (C) 2018-2019 Nuvoton Technologies, All Rights Reserved
  *<<<-------------------------------------------------------------------------
  * File Contents:
  *   cmd.c
@@ -12,45 +12,66 @@
  *---------------------------------------------------------------------------
  */
 
-
 #include <stdio.h>
 #include <string.h>
 
 #include "uut_types.h"
-#include "main.h"
+#include "program.h"
 #include "cmd.h"
 #include "lib_crc.h"
-
-/*----------------------------------------------------------------------------
- * Constant definitions
- *---------------------------------------------------------------------------
- */
 
 /*----------------------------------------------------------------------------
  *  SPI Flash commands
  *---------------------------------------------------------------------------
  */
+#define SPI_READ_JEDEC_ID_CMD       0x9F
+#define SPI_WRITE_ENABLE_CMD        0x06
+#define SPI_WRITE_DISABLE_CMD       0x04
+#define SPI_READ_STATUS_REG_CMD     0x05
+#define SPI_WRITE_STATUS_REG_CMD    0x01
+#define SPI_READ_DATA_CMD           0x03
+#define SPI_PAGE_PRGM_CMD           0x02
+#define SPI_SECTOR_ERASE_CMD        0xD8
+#define SPI_BULK_ERASE_CMD          0xC7
+#define SPI_READ_PID_CMD            0x90
 
-#define SPI_READ_JEDEC_ID_CMD		0x9F
-#define SPI_WRITE_ENABLE_CMD		0x06
-#define SPI_WRITE_DISABLE_CMD		0x04
-#define SPI_READ_STATUS_REG_CMD		0x05
-#define SPI_WRITE_STATUS_REG_CMD	0x01
-#define SPI_READ_DATA_CMD		0x03
-#define SPI_PAGE_PRGM_CMD		0x02
-#define SPI_SECTOR_ERASE_CMD		0xD8
-#define SPI_BULK_ERASE_CMD		0xC7
-#define SPI_READ_PID_CMD		0x90
-
+/*---------------------------------------------------------------------------
+ * Global types
+ *---------------------------------------------------------------------------
+ */
 union cmd_addr {
 	UINT8  c_adr[4];
 	UINT32 h_adr;
 };
 
+extern UINT32          crc_type;  // 16/32
+
 /*----------------------------------------------------------------------------
- * Function implementation
+ * Functions implementation
  *---------------------------------------------------------------------------
  */
+ /*----------------------------------------------------------------------------
+ * Function:	CMD_CreateSetDevPortToHigh
+ *
+ * Parameters:	   cmdInfo - Pointer to a command buffer.
+ *		   cmdLen  - Pointer to command length.
+ * Returns:	   none.
+ * Side effects:
+ * Description:
+ *		Create a set device port to high baudrate command.
+ *		The total command length is written to 'cmdLen'.
+ *---------------------------------------------------------------------------
+ */
+void CMD_CreateSetDevPortToHigh(UINT8  *cmdInfo, UINT32 *cmdLen)
+{
+	UINT32 len = 0;
+
+	/* Build the command buffer */
+	cmdInfo[len++] = UFPP_SET_HIGH_RATE_CMD;
+
+	/* Return total command length */
+	*cmdLen = len;
+}
 
 /*----------------------------------------------------------------------------
  * Function:	CMD_CreateSync
@@ -119,12 +140,17 @@ void CMD_CreateWrite(UINT32  addr,
 	len += size;
 
 	/* Calculate CRC */
-	for (i = 0; i < len; i++)
-		crc = update_crc(crc, (char) cmdInfo[i]);
+
+	for (i = 0; i < len; i++) {
+		if (crc_type == 32)
+			crc = update_crc32(crc, (char)cmdInfo[i]);
+		else
+			crc = update_crc16((UINT16)crc, (char)cmdInfo[i]);
+	}
 
 	/* Insert CRC */
-	cmdInfo[len++] = MSB(crc);
-	cmdInfo[len++] = LSB(crc);
+	cmdInfo[len++] = MSB((UINT16)crc);
+	cmdInfo[len++] = LSB((UINT16)crc);
 
 	/* Return total command length */
 	*cmdLen = len;
@@ -165,12 +191,16 @@ void CMD_CreateRead(UINT32  addr, UINT8   size, UINT8  *cmdInfo, UINT32 *cmdLen)
 	cmdInfo[len++] = adr_tr.c_adr[0];
 
 	/* Calculate CRC */
-	for (i = 0; i < len; i++)
-		crc = update_crc(crc, (char) cmdInfo[i]);
+	for (i = 0; i < len; i++) {
+		if (crc_type == 32)
+			crc = update_crc32(crc, (char)cmdInfo[i]);
+		else
+			crc = update_crc16((UINT16)crc, (char)cmdInfo[i]);
+	}
 
 	/* Insert CRC */
-	cmdInfo[len++] = MSB(crc);
-	cmdInfo[len++] = LSB(crc);
+	cmdInfo[len++] = MSB((UINT16)crc);
+	cmdInfo[len++] = LSB((UINT16)crc);
 
 	/* Return total command length */
 	*cmdLen = len;
@@ -210,15 +240,41 @@ void CMD_CreateExec(UINT32  addr, UINT8  *cmdInfo, UINT32 *cmdLen)
 	cmdInfo[len++] = adr_tr.c_adr[0];
 
 	/* Calculate CRC */
-	for (i = 0; i < len; i++)
-		crc = update_crc(crc, (char) cmdInfo[i]);
+	for (i = 0; i < len; i++) {
+		if (crc_type == 32)
+			crc = update_crc32(crc, (char)cmdInfo[i]);
+		else
+			crc = update_crc16((UINT16)crc, (char)cmdInfo[i]);
+	}
 
 	/* Insert CRC */
-	cmdInfo[len++] = MSB(crc);
-	cmdInfo[len++] = LSB(crc);
+	cmdInfo[len++] = MSB((UINT16)crc);
+	cmdInfo[len++] = LSB((UINT16)crc);
 
 	/* Return total command length */
 	*cmdLen = len;
+}
+
+/*---------------------------------------------------------------------------
+* Function:        CMD_BuildSetDevPortToHigh
+*
+* Parameters:	cmdBuf - Pointer to a command buffer.
+*		cmdLen - Pointer to command length.
+* Returns:	none.
+* Description:
+*		Build a set device to high baudrate command buffer.
+*		The total command number is written to 'cmdNum'.
+*---------------------------------------------------------------------------
+*/
+void CMD_BuildSetDevPortToHigh(struct ComandNode *cmdBuf, UINT32 *cmdNum)
+{
+	UINT32 nCmd = 0;
+
+	CMD_CreateSetDevPortToHigh(cmdBuf[nCmd].cmd, &cmdBuf[nCmd].cmdSize);
+	cmdBuf[nCmd].respSize = 0;
+	nCmd++;
+
+	*cmdNum = nCmd;
 }
 
 /*---------------------------------------------------------------------------

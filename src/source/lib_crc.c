@@ -148,7 +148,7 @@ unsigned short update_crc(unsigned short crc, char c)
     *********************************************************************
     */
 #ifdef CRC_16
-unsigned short update_crc(unsigned short crc, char c)
+unsigned short update_crc16(unsigned short crc, char c)
 {
 	unsigned short tmp, short_c;
 
@@ -199,7 +199,7 @@ unsigned short update_crc(unsigned short crc, char c)
     *********************************************************************
     */
 #ifdef CRC_32
-unsigned long update_crc(unsigned long crc, char c)
+unsigned long update_crc32(unsigned long crc, char c)
 {
 
 	unsigned long tmp, long_c;

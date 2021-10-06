@@ -2,8 +2,8 @@
 /*
  * Nuvoton UART Update Tool
  *
- * Copyright (C) 2018 Nuvoton Technologies, All Rights Reserved
- *<<<------------------------------------------------------------------------
+ * Copyright (C) 2018-2019 Nuvoton Technologies, All Rights Reserved
+ *<<<-----------------------------------------------------------------------
  * File Contents:
  *   ComPort.cpp
  *            This file defines the initialization routines for the DLL.
@@ -23,7 +23,7 @@
 #include <sys/ioctl.h>
 
 #include "uut_types.h"
-#include "main.h"
+#include "program.h"
 #include "ComPort.h"
 
 /*---------------------------------------------------------------------------

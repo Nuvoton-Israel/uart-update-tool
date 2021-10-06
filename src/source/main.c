@@ -2,7 +2,7 @@
 /*
  * Nuvoton UART Update Tool
  *
- * Copyright (C) 2018 Nuvoton Technologies, All Rights Reserved
+ * Copyright (C) 2019 Nuvoton Technologies, All Rights Reserved
  *<<<------------------------------------------------------------------------
  * File Contents:
  *   main.c
@@ -18,49 +18,43 @@
 #include <stdlib.h>
 
 #include "uut_types.h"
-#include "main.h"
+#include "program.h"
 #include "ComPort.h"
 #include "opr.h"
+
+/*---------------------------------------------------------------------------
+ * External variables
+ *---------------------------------------------------------------------------
+ */
+extern UINT32                   BaudRate;
+extern char                     PortName[MAX_PARAM_SIZE];
+extern struct COMPORT_FIELDS    PortCfg;
+extern BOOLEAN                  Verbose;
+extern BOOLEAN                  Console;
+extern UINT32                   DevPortNum;
+extern UINT32                   crc_type;
 
 /*----------------------------------------------------------------------------
  * Constant definitions
  *---------------------------------------------------------------------------
  */
-
 #define MAX_FILE_NAME_SIZE	512
-#define MAX_PARAM_SIZE		32
 #define MAX_MSG_SIZE		128
 
-/* Default values */
-#define DEFAULT_BAUD_RATE	115200
-#ifdef WIN32
-#define DEFAULT_PORT_NAME	"COM1"
-#else
-#define DEFAULT_PORT_NAME	"ttyS0"
-#endif
-#define DEFAULT_DEV_NUM		0
-
-#define GET_BASE(str)	(((str[0] == 'x') || (str[1] == 'x')) ? \
-					BASE_HEXADECIMAL : BASE_DECIMAL)
+#define GET_BASE(str)		(((str[0] == 'x') || (str[1] == 'x')) ? \
+								BASE_HEXADECIMAL : BASE_DECIMAL)
 
 /*---------------------------------------------------------------------------
  * Global variables
  *---------------------------------------------------------------------------
  */
+char	FileName[MAX_FILE_NAME_SIZE];
+char	AddrStr[MAX_PARAM_SIZE];
+char	SizeStr[MAX_PARAM_SIZE];
+char	OprName[MAX_PARAM_SIZE];
+char	RateStr[MAX_PARAM_SIZE];
+char	DevPortNumStr[MAX_PARAM_SIZE];
 
-char		port_name[MAX_PARAM_SIZE];
-struct COMPORT_FIELDS	portCfg;
-UINT32		baudRate;
-
-char		opr_name[MAX_PARAM_SIZE];
-UINT32		devNum;
-
-char		fileName[MAX_FILE_NAME_SIZE];
-char		addrStr[MAX_PARAM_SIZE];
-char		sizeStr[MAX_PARAM_SIZE];
-
-BOOLEAN		verbose;
-BOOLEAN		console;
 
 /*---------------------------------------------------------------------------
  * Local variables
@@ -69,45 +63,31 @@ BOOLEAN		console;
 #ifdef WIN32
 static const char TOOL_NAME[]	  = { "WINDOWS UART Update Tool" };
 #if defined(_WIN32)
-static const char TOOL_VERSION[] = { "2.0.3" };
+static const char TOOL_VERSION[] = { "2.1.3" };
 #else
     #error  You must define __WATCOMC__ or _WIN32
 #endif
 #else
 static const char TOOL_NAME[]	  = { "LINUX UART Update Tool" };
-static const char TOOL_VERSION[] = { "2.0.3" };
+static const char TOOL_VERSION[] = { "2.1.3" };
 #endif
-
 
 /*---------------------------------------------------------------------------
  * Functions prototypes
  *---------------------------------------------------------------------------
  */
-
-static void	PARAM_ParseCmdLine(int argc, char *argv[]);
-static void	PARAM_CheckPortNum(char *port_name);
-static void	PARAM_CheckOprNum(const char *opr);
+static void	    PARAM_ParseCmdLine(int argc, char *argv[]);
+static void		PARAM_CheckPortNum(char *port_name);
+static void		PARAM_CheckOprNum(const char *opr);
 static UINT32	PARAM_GetFileSize(const char *fileName);
 static UINT32	PARAM_GetStrSize(char *string);
-static void	MAIN_PrintVersion(void);
-static void	ToolUsage(void);
-static void	ExitUartApp(UINT32 exitStatus);
-static int	str_cmp_no_case(const char *s1, const char *s2);
-
-enum EXIT_CODE {
-	EC_OK			= 0x00,
-	EC_PORT_ERR		= 0x01,
-	EC_BAUDRATE_ERR		= 0x02,
-	EC_SYNC_ERR		= 0x03,
-	EC_DEV_NUM_ERR		= 0x04,
-	EC_OPR_MUM_ERR		= 0x05,
-	EC_ALIGN_ERR		= 0x06,
-	EC_FILE_ERR		= 0x07,
-	EC_UNSUPPORTED_CMD_ERR	= 0x08
-};
+static void	    MAIN_PrintVersion(void);
+static void	    ToolUsage(void);
+static void     ExitUartApp(UINT32 exitStatus);
+static int	    str_cmp_no_case(const char *s1, const char *s2);
 
 /*---------------------------------------------------------------------------
- * Function implementation
+ * Functions implementation
  *---------------------------------------------------------------------------
  */
 
@@ -153,114 +133,120 @@ int main(int   argc, char *argv[])
 	 * COND_FAILED(Error==0, ("Failed: Error=%lu\n",Error), ("Passed\n"));
 	 */
 
-	char		*stopStr;
-	char		auxBuf[MAX_FILE_NAME_SIZE];
-	UINT32		size	= 0;
-	UINT32		addr	= 0;
-	enum SYNC_RESULT sr;
+	char		        *stopStr;
+	char		        auxBuf[MAX_FILE_NAME_SIZE];
+	UINT32		        size	= 0;
+	UINT32		        addr	= 0;
+    enum SYNC_RESULT    sr;
 
 	if (argc <= 1)
 		exit(EC_UNSUPPORTED_CMD_ERR);
 
 	/* Setup defaults */
-	strncpy(port_name, DEFAULT_PORT_NAME, sizeof(port_name));
-	baudRate     = DEFAULT_BAUD_RATE;
-	devNum	     = DEFAULT_DEV_NUM;
-	opr_name[0]  = '\0';
-	verbose  = TRUE;
-	console  = FALSE;
+	strncpy(PortName, DEFAULT_PORT_NAME, sizeof(PortName));
+	BaudRate     = DEFAULT_BAUD_RATE;
+	OprName[0]  = '\0';
+	Verbose  = TRUE;
+	Console  = FALSE;
+	crc_type = 16;
 
 	PARAM_ParseCmdLine(argc, argv);
 
-	PARAM_CheckPortNum(port_name);
-
-	/* 
-	* Configure COM Port parameters
-	*/
-	portCfg.BaudRate	= MAX(baudRate, BR_LOW_LIMIT);
-	portCfg.ByteSize	= 8;
-	portCfg.FlowControl	= 0;
-	portCfg.Parity		= 0;
-	portCfg.StopBits	= 0;
+	PARAM_CheckPortNum(PortName);
 
 	/*
-	* A scan is required, chaeck each port, and then save the port num to the invironment
+	* Configure COM Port parameters
 	*/
-	if (strcmp(opr_name, OPR_SCAN) == 0) {
-		if(OPR_ScanPort(portCfg, port_name))
+	PortCfg.BaudRate	= MAX(BaudRate, BR_LOW_LIMIT);
+	PortCfg.ByteSize	= 8;
+	PortCfg.FlowControl	= 0;
+	PortCfg.Parity		= 0;
+	PortCfg.StopBits	= 0;
+
+	/*
+	* A scan is required, check each port, and then save the port num to the invironment
+	*/
+	if (strcmp(OprName, OPR_SCAN) == 0) {
+		if (OPR_ScanPort(PortCfg, PortName)) {
 			displayColorMsg(SUCCESS,
-					"\nScan ports pass, detected %s\n", port_name);
-		else
+				"\nScan ports pass, detected %s\n", PortName);
+			ExitUartApp(EC_OK);
+		} else {
 			displayColorMsg(FAIL,
-				"\nScan ports failed! Try to disconnect all terminal Apps, and make sure straps or OK\n");;
-		exit(EC_OK);
+				"\nScan ports failed! Try to disconnect all terminal Apps, and make sure straps are OK\n");
+			ExitUartApp(EC_SCAN_ERR);
+		}
 	}
 
 	/*
 	 * Open a ComPort device. If user haven't specified such, use ComPort 1
 	 */
-	if (OPR_OpenPort(port_name, portCfg) != TRUE)
+	if (OPR_OpenPort(PortName, PortCfg) != TRUE)
 		exit(EC_PORT_ERR);
 
-	if (baudRate == 0) { /* Scan baud rate range */
+	if (BaudRate == 0) { /* Scan baud rate range */
 		OPR_ScanBaudRate();
 		exit(EC_OK);
 	}
 
 	/* Verify Host and Device are synchronized */
 	DISPLAY_MSG(("Performing a Host/Device synchronization check...\n"));
-	sr = OPR_CheckSync(baudRate);
+	sr = OPR_CheckSync(BaudRate);
 	if (sr != SR_OK) {
 		displayColorMsg(FAIL,
 		     "Host/Device synchronization failed, error = %lu.\n", sr);
 		ExitUartApp(EC_SYNC_ERR);
 	}
 
-
-	PARAM_CheckOprNum(opr_name);
+	PARAM_CheckOprNum(OprName);
 
 	/* Write buffer data to chosen address */
-	if (strcmp(opr_name, OPR_WRITE_MEM) == 0) {
+	if (strcmp(OprName, OPR_WRITE_MEM) == 0) {
 
-		addr = strtoul(addrStr, &stopStr, GET_BASE(addrStr));
+		addr = strtoul(AddrStr, &stopStr, GET_BASE(AddrStr));
 
 		/*
 		 * Copy the input string to an auxiliary buffer, since string
 		 * is altered by PARAM_GetStrSize
 		 */
-		memcpy(auxBuf, fileName, sizeof(fileName));
+		memcpy(auxBuf, FileName, sizeof(FileName));
 
 		/* Retrieve input size */
-		if (console)
+		if (Console)
 			size = PARAM_GetStrSize(auxBuf);
 		else
-			size = PARAM_GetFileSize(fileName);
+			size = PARAM_GetFileSize(FileName);
 
 		/* Ensure non-zero size */
 		if (size == 0)
 			ExitUartApp(EC_FILE_ERR);
 
-		OPR_WriteMem(fileName, addr, size);
-	} else if (strcmp(opr_name, OPR_READ_MEM) == 0) {
+		OPR_WriteMem(FileName, addr, size);
+	} else if (strcmp(OprName, OPR_READ_MEM) == 0) {
 		/* Read data to chosen address */
 
-		addr = strtoul(addrStr, &stopStr, GET_BASE(addrStr));
-		size = strtoul(sizeStr, &stopStr, GET_BASE(sizeStr));
+		addr = strtoul(AddrStr, &stopStr, GET_BASE(AddrStr));
+		size = strtoul(SizeStr, &stopStr, GET_BASE(SizeStr));
 
-		OPR_ReadMem(fileName, addr, size);
-	} else if (strcmp(opr_name, OPR_EXECUTE_EXIT) == 0) {
+		OPR_ReadMem(FileName, addr, size);
+	} else if (strcmp(OprName, OPR_EXECUTE_EXIT) == 0) {
 		/* Execute From Address a non-return code */
 
-		addr = strtoul(addrStr, &stopStr, GET_BASE(addrStr));
+		addr = strtoul(AddrStr, &stopStr, GET_BASE(AddrStr));
 
 		OPR_ExecuteExit(addr);
 		ExitUartApp(EC_OK);
-	} else if (strcmp(opr_name, OPR_EXECUTE_CONT) == 0) {
+	} else if (strcmp(OprName, OPR_EXECUTE_CONT) == 0) {
 		/* Execute From Address a returnable code */
 
-		addr = strtoul(addrStr, &stopStr, GET_BASE(addrStr));
+		addr = strtoul(AddrStr, &stopStr, GET_BASE(AddrStr));
 
 		OPR_ExecuteReturn(addr);
+	} else if (strcmp(OprName, OPR_SET_HRATE) == 0) {
+		/* Execute From Address a non-return code */
+
+		OPR_SetDevicePortHighRate();
+		ExitUartApp(EC_OK);
 	} else
 		ExitUartApp(EC_UNSUPPORTED_CMD_ERR);
 
@@ -317,7 +303,7 @@ static void PARAM_ParseCmdLine(int   argc, char *argv[])
 		 *-----------------------------------------------------------
 		 */
 		else if (str_cmp_no_case(*(argv+i), "-silent") == 0) {
-			verbose = FALSE;
+			Verbose = FALSE;
 			continue;
 		}
 		/*-----------------------------------------------------------
@@ -325,7 +311,7 @@ static void PARAM_ParseCmdLine(int   argc, char *argv[])
 		 *-----------------------------------------------------------
 		 */
 		else if (str_cmp_no_case(*(argv+i), "-console") == 0) {
-			console = TRUE;
+			Console = TRUE;
 			continue;
 		}
 		/*-----------------------------------------------------------
@@ -333,7 +319,7 @@ static void PARAM_ParseCmdLine(int   argc, char *argv[])
 		 *-----------------------------------------------------------
 		 */
 		else if (str_cmp_no_case(*(argv+i), "-baudrate") == 0) {
-			if (sscanf(*(argv+1+i), "%du", &baudRate) == 0)
+			if (sscanf(*(argv+1+i), "%du", &BaudRate) == 0)
 				exit(EC_BAUDRATE_ERR);
 		}
 		/*-----------------------------------------------------------
@@ -341,7 +327,7 @@ static void PARAM_ParseCmdLine(int   argc, char *argv[])
 		 *-----------------------------------------------------------
 		 */
 		else if (str_cmp_no_case(*(argv+i), "-opr") == 0) {
-			if (sscanf(*(argv+1+i), "%s", (char *) opr_name) == 0)
+			if (sscanf(*(argv+1+i), "%s", (char *) OprName) == 0)
 				exit(EC_OPR_MUM_ERR);
 		}
 		/*-----------------------------------------------------------
@@ -349,15 +335,23 @@ static void PARAM_ParseCmdLine(int   argc, char *argv[])
 		 *-----------------------------------------------------------
 		 */
 		else if (str_cmp_no_case(*(argv+i), "-port") == 0) {
-			if (sscanf(*(argv+1+i), "%s", (char *) port_name) == 0)
+			if (sscanf(*(argv+1+i), "%s", (char *) PortName) == 0)
 				exit(EC_PORT_ERR);
+		}
+		/*-----------------------------------------------------------
+		* CRC Type (default 16)
+		*-----------------------------------------------------------
+		*/
+		else if (str_cmp_no_case(*(argv + i), "-crc") == 0) {
+			if (sscanf(*(argv + 1 + i), "%du", &crc_type) == 0)
+				exit(EC_CRC_ERR);
 		}
 		/*-----------------------------------------------------------
 		 * File Name
 		 *-----------------------------------------------------------
 		 */
 		else if (str_cmp_no_case(*(argv+i), "-file") == 0) {
-			if (sscanf(*(argv+1+i), "%s", fileName) == 0)
+			if (sscanf(*(argv+1+i), "%s", FileName) == 0)
 				exit(EC_FILE_ERR);
 		}
 		/*-----------------------------------------------------------
@@ -365,7 +359,7 @@ static void PARAM_ParseCmdLine(int   argc, char *argv[])
 		 *-----------------------------------------------------------
 		 */
 		else if (str_cmp_no_case(*(argv+i), "-addr") == 0) {
-			if (sscanf(*(argv+1+i), "%s", addrStr) == 0)
+			if (sscanf(*(argv+1+i), "%s", AddrStr) == 0)
 				;
 		}
 		/*-----------------------------------------------------------
@@ -373,8 +367,16 @@ static void PARAM_ParseCmdLine(int   argc, char *argv[])
 		 *-----------------------------------------------------------
 		 */
 		else if (str_cmp_no_case(*(argv+i), "-size") == 0) {
-			if (sscanf(*(argv+1+i), "%s", sizeStr) == 0)
+			if (sscanf(*(argv+1+i), "%s", SizeStr) == 0)
 				;
+		}
+		/*-----------------------------------------------------------
+		* Device Port Number
+		*-----------------------------------------------------------
+		*/
+		else if (str_cmp_no_case(*(argv + i), "-devport") == 0) {
+			if (sscanf(*(argv+1+i), "%d", &DevPortNum) == 0)
+				exit(EC_PORT_ERR);
 		}
 		/*-----------------------------------------------------------
 		 * Unknown Parameter
@@ -406,7 +408,6 @@ static void PARAM_ParseCmdLine(int   argc, char *argv[])
  */
 static void PARAM_CheckPortNum(char *port_name)
 {
-
 	if ((strncmp(port_name,
 		     COMP_PORT_PREFIX_1,
 		     strlen(COMP_PORT_PREFIX_1)) != 0) &&
@@ -434,12 +435,13 @@ static void PARAM_CheckPortNum(char *port_name)
  */
 static void PARAM_CheckOprNum(const char *opr)
 {
-#ifdef WIN32	
+#ifdef WIN32
 	if ((stricmp(opr, OPR_WRITE_MEM) != 0)    &&
 	    (stricmp(opr, OPR_READ_MEM) != 0)     &&
 	    (stricmp(opr, OPR_EXECUTE_EXIT) != 0) &&
 	    (stricmp(opr, OPR_SCAN) != 0)         &&
-	    (stricmp(opr, OPR_EXECUTE_CONT) != 0)) {
+	    (stricmp(opr, OPR_EXECUTE_CONT) != 0) &&
+		(stricmp(opr, OPR_SET_HRATE) != 0)) {
 
 #else
 	if ((strcasecmp(opr, OPR_WRITE_MEM) != 0)    &&
@@ -449,13 +451,14 @@ static void PARAM_CheckOprNum(const char *opr)
 	    (strcasecmp(opr, OPR_EXECUTE_CONT) != 0)) {
 #endif
 		displayColorMsg(FAIL,
-"ERROR: Operation %s not supported, Supported operations are %s, %s, %s & %s\n",
+"ERROR: Operation %s not supported, Supported operations are %s, %s, %s, %s & %s\n",
 		opr,
 		OPR_WRITE_MEM,
 		OPR_READ_MEM,
 		OPR_EXECUTE_EXIT,
 		OPR_SCAN,
-		OPR_EXECUTE_CONT);
+		OPR_EXECUTE_CONT,
+		OPR_SET_HRATE);
 		ExitUartApp(EC_OPR_MUM_ERR);
 	}
 }
@@ -558,7 +561,9 @@ DEFAULT_PORT_NAME);
 	printf(
 "       -baudrate <num>  - COM Port baud-rate (default is %d)\n",
 DEFAULT_BAUD_RATE);
+	printf("       -crc <num>       - CRC type [16, 32]. Default 16.\n");
 	printf("\n");
+
 	printf("Operation specific switches:\n");
 	printf("       -opr   <name>    - Operation number (see list below)\n");
 	printf("       -file  <name>    - Input/output file name\n");
@@ -566,7 +571,6 @@ DEFAULT_BAUD_RATE);
 	printf("       -size  <num>     - Size of data to read\n");
 	printf("\n");
 }
-
 
 /*--------------------------------------------------------------------------
  * Function:	MAIN_PrintVersion
@@ -582,7 +586,6 @@ static void MAIN_PrintVersion(void)
 {
 	printf("%s version %s\n\n", TOOL_NAME, TOOL_VERSION);
 }
-
 
 /*---------------------------------------------------------------------------
  * Function:	ExitUartApp
@@ -601,62 +604,6 @@ static void ExitUartApp(UINT32 exitStatus)
 
 	exit(exitStatus);
 }
-
-/*---------------------------------------------------------------------------
- * Function:	displayColorMsg
- *
- * Parameters:
- *		success - SUCCESS for successful message, FAIL for erroneous
- *			  massage.
- *		fmt     - Massage to dispaly (format and arguments).
- *
- * Returns:	none
- * Side effects: Using DISPLAY_MSG macro.
- * Description:
- *		This routine displays a message using color attributes:
- *		In case of a successful message, use green foreground text on
- *		black background.
- *		In case of an erroneous message, use red foreground text on
- *		black background.
- *---------------------------------------------------------------------------
- */
-void displayColorMsg(BOOLEAN success, char *fmt, ...)
-{
-	va_list argptr;
-
-#ifdef WIN32
-	HANDLE				h_console;
-	CONSOLE_SCREEN_BUFFER_INFO	csbi;
-	WORD				old_color = FOREGROUND_INTENSITY;
-	WORD				new_color;
-
-	h_console = GetStdHandle(STD_OUTPUT_HANDLE);
-
-	if (h_console != INVALID_HANDLE_VALUE) {
-		GetConsoleScreenBufferInfo(h_console, &csbi);
-
-		/* Save the current text colors */
-		old_color = csbi.wAttributes;
-
-		if (success == TRUE)
-			new_color = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
-		else
-			new_color = FOREGROUND_RED | FOREGROUND_INTENSITY;
-
-		SetConsoleTextAttribute(h_console, new_color);
-	}
-#endif
-
-	va_start(argptr, fmt);
-	vprintf(fmt, argptr);
-	va_end(argptr);
-
-#ifdef WIN32
-	if (h_console != INVALID_HANDLE_VALUE)
-		SetConsoleTextAttribute(h_console, old_color);
-#endif
-}
-
 
 /*--------------------------------------------------------------------------
  * Function:	 str_cmp_no_case

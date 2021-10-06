@@ -2,7 +2,7 @@
 /*
  * Nuvoton UART Update Tool
  *
- * Copyright (C) 2018 Nuvoton Technologies
+ * Copyright (C) 2018-2019 Nuvoton Technologies
  *<<<------------------------------------------------------------------------------------------------------
  * File Contents:  
  *   ComPort.cpp
@@ -18,7 +18,7 @@
 #include <string.h>
 
 #include "uut_types.h"
-#include "main.h"
+#include "program.h"
 #include "ComPort.h"
 
 /*---------------------------------------------------------------------------------------------------------*/

@@ -2,7 +2,7 @@
 /*
  * Nuvoton UART Update Tool
  *
- * Copyright (C) 2018 Nuvoton Technologies, All Rights Reserved
+ * Copyright (C) 2018-2019 Nuvoton Technologies, All Rights Reserved
  *<<<------------------------------------------------------------------------
  * File Contents:
  *   opr.h
@@ -21,20 +21,25 @@
  *---------------------------------------------------------------------------
  */
 
+/* Base for string conversion */
+#define BASE_DECIMAL        10
+#define BASE_HEXADECIMAL    16
+
 /* Baud rate scan steps: */
-#define BR_BIG_STEP	20     /*in percents from current baud rate	      */
-#define BR_MEDIUM_STEP	10     /* in percents from current baud rate	      */
-#define BR_SMALL_STEP	1      /* in percents from current baud rate	      */
-#define BR_MIN_STEP	5      /* in absolut baud rate units		      */
-#define BR_LOW_LIMIT	400    /* Automatic BR detection starts at this value */
-#define BR_HIGH_LIMIT	150000 /* Automatic BR detection ends at this value   */
+#define BR_BIG_STEP         20		/* in percents from current baud rate           */
+#define BR_MEDIUM_STEP      10		/* in percents from current baud rate           */
+#define BR_SMALL_STEP       1		/* in percents from current baud rate           */
+#define BR_MIN_STEP         5		/* in absolut baud rate units                   */
+#define BR_LOW_LIMIT        400		/* Automatic BR detection starts at this value  */
+#define BR_HIGH_LIMIT       150000	/* Automatic BR detection ends at this value    */
 
 
-#define OPR_WRITE_MEM		"wr"	/* Write To Memory/Flash	*/
-#define OPR_READ_MEM		"rd"	/* Read From Memory/Flash	*/
-#define OPR_EXECUTE_EXIT	"go"	/* Execute a non-return code	*/
-#define OPR_EXECUTE_CONT	"call"	/* Execute returnable code	*/
-#define OPR_SCAN		    "scan"  /*scan COM port			*/	
+#define OPR_WRITE_MEM       "wr"     /* Write To Memory/Flash                        */
+#define OPR_READ_MEM        "rd"     /* Read From Memory/Flash                       */
+#define OPR_EXECUTE_EXIT    "go"     /* Execute a non-return code                    */
+#define OPR_EXECUTE_CONT    "call"   /* Execute returnable code                      */
+#define OPR_SCAN            "scan"   /* scan COM port                                */
+#define OPR_SET_HRATE       "srhigh" /* Set serial bauderate to high baudrate        */
 
 enum SYNC_RESULT {
 	SR_OK           =   0x00,
@@ -47,7 +52,7 @@ enum SYNC_RESULT {
  * External Variables
  *---------------------------------------------------------------------------
  */
-extern struct COMPORT_FIELDS	portCfg;
+extern struct COMPORT_FIELDS	PortCfg;
 
 /*---------------------------------------------------------------------------
  * Functions prototypes
@@ -73,5 +78,6 @@ BOOLEAN		OPR_ScanBaudRate(void);
 enum SYNC_RESULT	OPR_CheckSync(UINT32 bdRate);
 void		OPR_ReadStatusMsg(char *outputFileName);
 BOOLEAN		OPR_ScanPort(struct COMPORT_FIELDS portCfg, char * port);
+BOOLEAN		OPR_SetDevicePortHighRate(void);
 
 #endif /* _OPR_H_ */
